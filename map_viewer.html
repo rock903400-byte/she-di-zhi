@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社地址地圖顯示器</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --primary: #2563eb; --primary-light: #dbeafe; --primary-dark: #1d4ed8;
+            --success: #16a34a; --success-bg: #dcfce7; --success-dark: #15803d;
+            --danger: #dc2626; --danger-bg: #fee2e2; --danger-dark: #b91c1c;
+            --warning: #d97706; --warning-bg: #fef3c7; --warning-dark: #b45309;
+            --bg: #f3f4f6; --surface: #ffffff; --surface-alt: #f9fafb;
+            --border: #e5e7eb; --border-focus: #2563eb;
+            --text: #1f2937; --text-secondary: #6b7280; --text-muted: #9ca3af;
+            --radius: 8px; --radius-lg: 12px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+            --shadow: 0 1px 3px rgba(0,0,0,.1), 0 1px 2px rgba(0,0,0,.06);
+            --shadow-lg: 0 4px 6px rgba(0,0,0,.07), 0 10px 15px rgba(0,0,0,.1);
+            --header-bg: linear-gradient(135deg, #1e40af, #3b82f6);
+            --marker-label-bg: rgba(255,255,255,.92);
+            --panel-h: 260px;
+        }
+        [data-theme="dark"] {
+            --bg: #0f172a; --surface: #1e293b; --surface-alt: #1e293b;
+            --border: #334155; --border-focus: #60a5fa;
+            --text: #e2e8f0; --text-secondary: #94a3b8; --text-muted: #64748b;
+            --header-bg: linear-gradient(135deg, #1e3a5f, #2563eb);
+            --marker-label-bg: rgba(30,41,59,.92);
+            --danger-bg: #450a0a; --success-bg: #052e16; --warning-bg: #451a03;
+            --primary-light: #1e3a5f;
+        }
+        html, body { height: 100%; font-family: "Microsoft JhengHei","Noto Sans TC",Arial,sans-serif; background: #000; color: var(--text); font-size: 14px; overflow: hidden; }
+
+        /* ── Map fills entire viewport ── */
+        .map-container { position: fixed; inset: 0; z-index: 0; }
+        #map { width: 100%; height: 100%; }
+
+        /* ── Floating panels ── */
+        .float-panel {
+            position: fixed; z-index: 1000;
+            background: var(--surface); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg); overflow: hidden;
+            transition: transform .25s ease, opacity .25s ease;
+        }
+        .float-panel.hidden { pointer-events: none; opacity: 0; transform: translateY(-8px); }
+
+        /* ── Top toolbar ── */
+        .float-toolbar {
+            top: 12px; left: 12px; right: 12px;
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 14px; border-radius: var(--radius-lg);
+        }
+        .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; white-space: nowrap; color: var(--text); }
+        .brand span:first-child { font-size: 18px; }
+        .file-label {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 6px 14px; background: var(--primary); color: white;
+            border-radius: var(--radius); cursor: pointer; font-weight: 600; font-size: 12px;
+            transition: background .15s; white-space: nowrap;
+        }
+        .file-label:hover { background: var(--primary-dark); }
+        .file-label input { display: none; }
+        .file-name { color: var(--text-muted); font-size: 12px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .toolbar-spacer { flex: 1; }
+        .tb-right { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 5px 12px; border: none; border-radius: 6px;
+            font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+            white-space: nowrap;
+        }
+        .btn:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover:not(:disabled) { background: var(--danger-dark); }
+        .btn-outline { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+        .btn-outline:hover:not(:disabled) { background: var(--surface-alt); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover:not(:disabled) { background: var(--success-dark); }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-warning:hover:not(:disabled) { background: var(--warning-dark); }
+        .icon-btn {
+            width: 30px; height: 30px; border: none; border-radius: 6px;
+            background: var(--surface-alt); color: var(--text); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; transition: background .15s; border: 1px solid var(--border);
+        }
+        .icon-btn:hover { background: var(--primary-light); }
+
+        /* ── Stats overlay ── */
+        .float-stats {
+            top: 60px; left: 12px;
+            display: flex; gap: 6px; padding: 6px 10px; border-radius: var(--radius);
+        }
+        .stat-card {
+            padding: 6px 12px; border-radius: 6px; text-align: center;
+            min-width: 64px; transition: transform .1s;
+        }
+        .stat-card.clickable { cursor: pointer; }
+        .stat-card.clickable:hover { transform: scale(1.05); }
+        .stat-card .value { font-size: 20px; font-weight: 800; line-height: 1.2; }
+        .stat-card .label { font-size: 10px; opacity: .65; margin-top: 1px; }
+        .stat-card.total { background: var(--surface-alt); border: 1px solid var(--border); }
+        .stat-card.success { background: var(--success-bg); color: var(--success); border: 1px solid transparent; }
+        .stat-card.fail { background: var(--danger-bg); color: var(--danger); border: 1px solid transparent; }
+        .stat-card.eta { background: var(--primary-light); color: var(--primary); border: 1px solid transparent; }
+        .stat-card.active-filter { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+        /* ── Progress overlay ── */
+        .float-progress {
+            top: 106px; left: 12px; right: 12px;
+            padding: 8px 14px; border-radius: var(--radius);
+        }
+        .progress-info {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 11px; color: var(--text-secondary); margin-bottom: 5px;
+        }
+        .progress-current { color: var(--primary); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+        .progress-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); width: 0%; transition: width .3s ease; border-radius: 2px; }
+
+        /* ── Welcome overlay ── */
+        .float-welcome {
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 480px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px);
+            overflow-y: auto; padding: 32px; text-align: center; border-radius: var(--radius-lg);
+        }
+        .float-welcome.hidden { transform: translate(-50%, -48%); }
+        .welcome-icon { font-size: 52px; margin-bottom: 12px; }
+        .float-welcome h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        .float-welcome > p { color: var(--text-secondary); margin-bottom: 20px; font-size: 14px; }
+        .drop-zone {
+            border: 2px dashed var(--border); border-radius: var(--radius);
+            padding: 28px 16px; cursor: pointer; transition: all .2s;
+            background: var(--surface-alt); margin-bottom: 20px;
+        }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: var(--primary-light); }
+        .drop-zone-icon { font-size: 32px; margin-bottom: 6px; }
+        .drop-zone-text { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+        .drop-zone-hint { font-size: 11px; color: var(--text-muted); }
+        .format-info {
+            background: var(--surface-alt); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 14px 16px; text-align: left;
+        }
+        .format-info h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+        .format-info ul { list-style: none; }
+        .format-info li { padding: 3px 0; font-size: 12px; color: var(--text-secondary); }
+        .format-info li strong { color: var(--text); }
+
+        /* ── Preview overlay ── */
+        .float-preview {
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 600px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px);
+            display: flex; flex-direction: column; padding: 0;
+        }
+        .float-preview.hidden { transform: translate(-50%, -48%); }
+        .preview-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .preview-head h3 { font-size: 15px; font-weight: 700; }
+        .preview-meta { display: flex; gap: 14px; font-size: 12px; color: var(--text-secondary); }
+        .preview-meta .warn { color: var(--warning); font-weight: 600; }
+        .preview-body { flex: 1; overflow-y: auto; max-height: 260px; padding: 0 18px; }
+        .preview-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .preview-table th {
+            position: sticky; top: 0; z-index: 1; background: var(--surface-alt);
+            text-align: left; padding: 6px 8px; font-weight: 600; color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .preview-table td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+        .preview-table tr.preview-warn td { background: var(--warning-bg); }
+        .preview-foot { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
+
+        /* ── Bottom panel (slide up) ── */
+        .float-bottom {
+            bottom: 0; left: 0; right: 0;
+            border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+            max-height: var(--panel-h); display: flex; flex-direction: column;
+            transition: transform .25s ease;
+        }
+        .float-bottom.collapsed { transform: translateY(calc(var(--panel-h) - 36px)); }
+        .panel-tab {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 18px; cursor: pointer; user-select: none; flex-shrink: 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .panel-tab:hover { background: var(--surface-alt); }
+        .panel-tab .arrow { transition: transform .2s; font-size: 10px; color: var(--text-muted); }
+        .float-bottom.collapsed .arrow { transform: rotate(180deg); }
+        .panel-tab-title { font-weight: 600; font-size: 13px; }
+        .filter-tabs { display: flex; gap: 4px; margin-left: 10px; }
+        .tab {
+            padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-secondary); font-size: 11px;
+            font-weight: 600; cursor: pointer; transition: all .15s;
+        }
+        .tab:hover { background: var(--surface-alt); }
+        .tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .tab .cnt { margin-left: 2px; opacity: .8; }
+        .panel-search { padding: 5px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .panel-search input {
+            width: 100%; padding: 5px 10px; border: 1px solid var(--border);
+            border-radius: 6px; font-size: 12px; outline: none;
+            background: var(--surface); color: var(--text);
+        }
+        .panel-search input:focus { border-color: var(--border-focus); box-shadow: 0 0 0 2px rgba(37,99,235,.12); }
+        .panel-table-wrap { flex: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead { position: sticky; top: 0; z-index: 2; }
+        th {
+            background: var(--surface-alt); text-align: left; padding: 6px 8px;
+            font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid var(--border);
+            white-space: nowrap; cursor: pointer;
+        }
+        th:hover { color: var(--text); }
+        th .sa { margin-left: 2px; font-size: 9px; }
+        td { padding: 4px 8px; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: var(--surface-alt); }
+        tr.fail td { background: var(--danger-bg); }
+        .loc-name { font-weight: 600; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .loc-addr { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 11px; }
+        .loc-coords { font-family: monospace; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+        .map-btn { padding: 1px 6px; font-size: 10px; border-radius: 3px; cursor: pointer; border: 1px solid var(--primary); background: var(--surface); color: var(--primary); }
+        .map-btn:hover { background: var(--primary-light); }
+        .edit-row { display: flex; gap: 3px; }
+        .edit-row input { flex: 1; min-width: 80px; padding: 2px 5px; font-size: 11px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); color: var(--text); }
+        .edit-row input:focus { border-color: var(--primary); }
+        .edit-btn { padding: 2px 5px; font-size: 10px; border-radius: 3px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); }
+        .edit-btn:hover { background: var(--surface-alt); }
+        .empty-state { text-align: center; padding: 30px 16px; color: var(--text-muted); }
+        .empty-state .icon { font-size: 36px; margin-bottom: 8px; }
+
+        /* ── Toast ── */
+        .toast-container { position: fixed; top: 60px; right: 12px; z-index: 9999; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+        .toast {
+            padding: 8px 16px; border-radius: 6px; color: white;
+            font-weight: 600; font-size: 12px; box-shadow: var(--shadow-lg);
+            animation: toastIn .25s ease, toastOut .3s ease 3.7s forwards;
+            max-width: 340px; pointer-events: auto;
+        }
+        .toast.info { background: #2563eb; }
+        .toast.success { background: #16a34a; }
+        .toast.error { background: #dc2626; }
+        .toast.warn { background: #d97706; }
+        @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes toastOut { to { opacity: 0; transform: translateX(40px); } }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; animation: fadeIn .15s ease;
+        }
+        .modal-box {
+            background: var(--surface); border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg); width: 90%; max-width: 400px;
+            animation: scaleIn .15s ease;
+        }
+        .modal-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-head h3 { font-size: 15px; font-weight: 700; }
+        .modal-close { background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-muted); padding: 2px; }
+        .modal-close:hover { color: var(--text); }
+        .modal-body { padding: 18px; }
+        .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .export-card {
+            padding: 14px; border: 1px solid var(--border); border-radius: var(--radius);
+            cursor: pointer; text-align: center; transition: all .15s;
+        }
+        .export-card:hover { border-color: var(--primary); background: var(--primary-light); }
+        .export-card .icon { font-size: 24px; margin-bottom: 4px; }
+        .export-card .name { font-size: 12px; font-weight: 600; }
+        .export-card .desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        kbd { display: inline-block; padding: 1px 5px; font-size: 10px; font-family: monospace; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 3px; }
+        .floating-label {
+            background: var(--marker-label-bg); border: 2px solid var(--primary);
+            border-radius: 5px; padding: 2px 6px; font-weight: 700; font-size: 11px;
+            white-space: nowrap; box-shadow: var(--shadow); color: var(--text);
+        }
+        .hidden { display: none !important; }
+
+        @media (max-width: 640px) {
+            .float-toolbar { padding: 6px 10px; gap: 5px; flex-wrap: wrap; }
+            .brand span:last-child { display: none; }
+            .file-name { display: none; }
+            .float-stats { top: 54px; left: 8px; gap: 4px; padding: 4px 6px; }
+            .stat-card { padding: 4px 8px; min-width: 52px; }
+            .stat-card .value { font-size: 16px; }
+            .float-progress { top: 96px; left: 8px; right: 8px; }
+            .float-welcome { width: calc(100vw - 16px); padding: 20px 16px; }
+            .float-preview { width: calc(100vw - 16px); }
+            :root { --panel-h: 200px; }
+            .loc-name { max-width: 80px; }
+            .loc-addr { max-width: 100px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Map is the base layer -->
+    <div class="map-container"><div id="map"></div></div>
+
+    <!-- Toolbar (floating) -->
+    <div class="float-panel float-toolbar" id="float-toolbar">
+        <div class="brand"><span>🗺️</span><span>社地址地圖</span></div>
+        <label class="file-label">
+            📂 選取 Excel
+            <input type="file" id="excel-file" accept=".xlsx,.xls" />
+        </label>
+        <span class="file-name" id="file-name"></span>
+        <div class="toolbar-spacer"></div>
+        <div class="tb-right">
+            <button class="btn btn-danger" id="btn-cancel" disabled>✕ 取消</button>
+            <button class="btn btn-warning" id="btn-retry-fail" disabled>↻ 重試失敗</button>
+            <button class="btn btn-outline" id="btn-export" disabled>↓ 匯出</button>
+            <button class="icon-btn" id="btn-clear-cache" title="清除快取">🗑️</button>
+            <button class="icon-btn" id="btn-theme" title="深色模式">🌙</button>
+            <button class="icon-btn" id="btn-shortcuts" title="快捷鍵">⌨</button>
+        </div>
+    </div>
+
+    <!-- Stats (floating) -->
+    <div class="float-panel float-stats hidden" id="float-stats">
+        <div class="stat-card total"><div class="value" id="stat-total">0</div><div class="label">總筆數</div></div>
+        <div class="stat-card success clickable" id="card-ok"><div class="value" id="stat-ok">0</div><div class="label">成功</div></div>
+        <div class="stat-card fail clickable" id="card-fail"><div class="value" id="stat-fail">0</div><div class="label">失敗</div></div>
+        <div class="stat-card eta"><div class="value" id="stat-eta">--</div><div class="label">預估</div></div>
+    </div>
+
+    <!-- Progress (floating) -->
+    <div class="float-panel float-progress hidden" id="float-progress">
+        <div class="progress-info">
+            <span class="progress-current" id="progress-current">就緒</span>
+            <span id="progress-rate"></span>
+            <span id="progress-count">0 / 0</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <!-- Welcome (floating centered) -->
+    <div class="float-panel float-welcome" id="float-welcome">
+        <div class="welcome-icon">🗺️</div>
+        <h2>將 Excel 地址轉換為互動地圖</h2>
+        <p>選取或拖曳 <code>@社地址.xlsx</code> 檔案即可開始</p>
+        <div class="drop-zone" id="drop-zone">
+            <div class="drop-zone-icon">📥</div>
+            <div class="drop-zone-text">拖曳 Excel 檔案到這裡</div>
+            <div class="drop-zone-hint">支援 .xlsx / .xls</div>
+        </div>
+        <div class="format-info">
+            <h3>📋 資料欄位格式</h3>
+            <ul>
+                <li><strong>B 欄</strong>：社名</li>
+                <li><strong>N 欄</strong>：地址（郵遞區號自動移除）</li>
+                <li>第一列為標題列，自動跳過</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Preview (floating centered) -->
+    <div class="float-panel float-preview hidden" id="float-preview">
+        <div class="preview-head">
+            <h3>📋 資料預覽</h3>
+            <div class="preview-meta">
+                <span>共 <strong id="preview-total">0</strong> 筆</span>
+                <span class="warn hidden" id="preview-warn-wrap">⚠ <span id="preview-warn">0</span> 筆可能有問題</span>
+            </div>
+        </div>
+        <div class="preview-body">
+            <table class="preview-table">
+                <thead><tr><th>#</th><th>社名</th><th>原始地址</th><th>清理後</th></tr></thead>
+                <tbody id="preview-body"></tbody>
+            </table>
+        </div>
+        <div class="preview-foot">
+            <button class="btn btn-outline" id="btn-clear-file">✕ 清除</button>
+            <button class="btn btn-primary" id="btn-start">▶ 開始處理 (<span id="preview-count">0</span> 筆)</button>
+        </div>
+    </div>
+
+    <!-- Bottom panel (slide-up drawer) -->
+    <div class="float-panel float-bottom collapsed" id="float-bottom">
+        <div class="panel-tab" id="panel-toggle">
+            <span class="arrow">▲</span>
+            <span class="panel-tab-title">📋 結果清單</span>
+            <div class="filter-tabs">
+                <button class="tab active" data-filter="all">全部 <span class="cnt" id="badge-all">0</span></button>
+                <button class="tab" data-filter="ok">成功 <span class="cnt" id="badge-ok">0</span></button>
+                <button class="tab" data-filter="fail">失敗 <span class="cnt" id="badge-fail">0</span></button>
+            </div>
+        </div>
+        <div class="panel-search" id="panel-search-wrap">
+            <input type="text" id="search-input" placeholder="🔍 搜尋名稱或地址..." />
+        </div>
+        <div class="panel-table-wrap" id="panel-body">
+            <table id="result-table" class="hidden">
+                <thead><tr>
+                    <th data-sort="status">狀態 <span class="sa"></span></th>
+                    <th data-sort="name">社名 <span class="sa"></span></th>
+                    <th data-sort="address">地址 <span class="sa"></span></th>
+                    <th data-sort="coords">座標 <span class="sa"></span></th>
+                    <th>操作</th>
+                </tr></thead>
+                <tbody id="table-body"></tbody>
+            </table>
+            <div class="empty-state" id="empty-state">
+                <div class="icon">📭</div>
+                <p>尚無結果</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script>
+    (function() {
+        const STATE_KEY = '社地址mapViewer';
+        let allResults = [];
+        let pendingLocations = [];
+        let abortController = null;
+        let processing = false;
+        let panelCollapsed = true;
+        let currentFilter = 'all';
+        let sortCol = null;
+        let sortDir = 1;
+        let filterCard = null;
+
+        const $ = id => document.getElementById(id);
+
+        // ── Map (full screen base) ──
+        const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([23.6, 121], 7);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+        L.control.scale({ position: 'bottomleft', imperial: false }).addTo(map);
+
+        const markers = L.markerClusterGroup({ maxClusterRadius: 40, spiderfyOnMaxZoom: true });
+        map.addLayer(markers);
+        const markerMap = new Map();
+
+        function toast(msg, type = 'info') {
+            const el = document.createElement('div');
+            el.className = 'toast ' + type;
+            el.textContent = msg;
+            $('toast-container').appendChild(el);
+            setTimeout(() => el.remove(), 4200);
+        }
+        function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+        function cleanAddress(address) {
+            if (!address) return '';
+            let c = address.replace(/^\d+/, '').trim();
+            c = c.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+            c = c.replace(/\(.*\)/g, '').replace(/（.*）/g, '');
+            return c;
+        }
+        function hasAddressIssue(raw) {
+            if (!raw) return true;
+            const c = cleanAddress(raw);
+            return c.length < 3 || !/(?:縣|市|鄉|鎮|區|村|里|路|街|巷|弄|號)/.test(c);
+        }
+
+        async function geocode(address) {
+            const cleaned = cleanAddress(address);
+            const m = cleaned.match(/^(.+?[縣市])(.+?[鄉鎮市區])(.+)$/);
+            if (m) {
+                const city = m[1], dist = m[2];
+                let street = m[3].trim();
+                let c = await fetchCoords(`${street}, ${dist}, ${city}, 台灣`);
+                if (c) return c;
+                let streetOnly = street.replace(/\d+.*$/, '').trim();
+                if (streetOnly && streetOnly !== street) {
+                    c = await fetchCoords(`${streetOnly}, ${dist}, ${city}, 台灣`);
+                    if (c) return c;
+                }
+                let pure = streetOnly.replace(/^.{1,3}[村里]/, '').trim();
+                if (pure && pure !== streetOnly) {
+                    c = await fetchCoords(`${pure}, ${dist}, ${city}, 台灣`);
+                    if (c) return c;
+                }
+                if (pure) { c = await fetchCoords(`${pure}, ${city}, 台灣`); if (c) return c; }
+                const vm = street.match(/^(.+?[村里])/);
+                if (vm) { c = await fetchCoords(`${vm[1]}, ${dist}, ${city}, 台灣`); if (c) return c; }
+                c = await fetchCoords(`${dist}, ${city}, 台灣`);
+                if (c) return c;
+            }
+            let c = await fetchCoords(cleaned + ', 台灣');
+            return c;
+        }
+
+        async function fetchCoords(query) {
+            await new Promise(r => setTimeout(r, 1200));
+            if (abortController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, { signal: abortController?.signal });
+                if (resp.status === 429 || resp.status === 403 || !resp.ok) return null;
+                const data = await resp.json();
+                return data?.length > 0 ? { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) } : null;
+            } catch (e) { if (e.name === 'AbortError') throw e; return null; }
+        }
+
+        function addMarker(lat, lon, name, addr) {
+            const marker = L.marker([lat, lon]);
+            marker.bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10], className: 'floating-label' });
+            marker.bindPopup(`<b>${esc(name)}</b><br><span style="font-size:11px;color:#888;">${esc(addr)}</span>`);
+            marker.on('click', () => highlightRow(name));
+            markers.addLayer(marker);
+            markerMap.set(name, marker);
+        }
+        function clearMarkers() { markers.clearLayers(); markerMap.clear(); }
+
+        function highlightRow(name) {
+            for (const row of $('table-body').querySelectorAll('tr')) {
+                const cell = row.querySelector('.loc-name');
+                if (cell?.textContent === name) {
+                    row.style.outline = '2px solid var(--primary)';
+                    setTimeout(() => row.style.outline = '', 2500);
+                    if (panelCollapsed) togglePanel();
+                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    break;
+                }
+            }
+        }
+
+        function updateStats() {
+            const total = allResults.length;
+            const ok = allResults.filter(r => r.status === 'ok').length;
+            const fail = allResults.filter(r => r.status === 'fail').length;
+            $('stat-total').textContent = total;
+            $('stat-ok').textContent = ok;
+            $('stat-fail').textContent = fail;
+            $('badge-all').textContent = total;
+            $('badge-ok').textContent = ok;
+            $('badge-fail').textContent = fail;
+            $('btn-retry-fail').disabled = fail === 0 || processing;
+            $('btn-export').disabled = total === 0;
+        }
+
+        let processStartTime = 0;
+        function updateEta(current, total) {
+            if (current < 2) { $('stat-eta').textContent = '--'; return; }
+            const elapsed = (Date.now() - processStartTime) / 1000;
+            const rate = current / elapsed;
+            const rem = (total - current) / rate;
+            $('stat-eta').textContent = rem < 60 ? Math.round(rem) + 's' : Math.round(rem / 60) + 'm' + Math.round(rem % 60) + 's';
+            $('progress-rate').textContent = rate.toFixed(1) + ' 筆/秒';
+        }
+
+        function renderTable() {
+            let items = allResults;
+            if (currentFilter !== 'all') items = items.filter(r => r.status === currentFilter);
+            const q = $('search-input').value.trim().toLowerCase();
+            if (q) items = items.filter(r => r.name.toLowerCase().includes(q) || r.address.toLowerCase().includes(q));
+            if (sortCol) {
+                items = [...items].sort((a, b) => {
+                    let va, vb;
+                    if (sortCol === 'status') { va = a.status; vb = b.status; }
+                    else if (sortCol === 'name') { va = a.name; vb = b.name; }
+                    else if (sortCol === 'address') { va = a.address; vb = b.address; }
+                    else if (sortCol === 'coords') { va = a.status === 'ok' ? a.lat : -999; vb = b.status === 'ok' ? b.lat : -999; }
+                    return va < vb ? -sortDir : va > vb ? sortDir : 0;
+                });
+            }
+            const tbody = $('table-body');
+            tbody.innerHTML = '';
+            if (items.length === 0) {
+                $('result-table').classList.add('hidden');
+                $('empty-state').classList.remove('hidden');
+                $('empty-state').querySelector('p').innerHTML = (q || currentFilter !== 'all') ? '🔍 無符合結果' : '📭 尚無結果';
+                return;
+            }
+            $('result-table').classList.remove('hidden');
+            $('empty-state').classList.add('hidden');
+
+            for (const r of items) {
+                const tr = document.createElement('tr');
+                if (r.status === 'fail') tr.className = 'fail';
+                const icon = r.status === 'ok' ? '✅' : '❌';
+                const coords = r.status === 'ok' ? `${r.lat.toFixed(4)}, ${r.lon.toFixed(4)}` : '—';
+                const idx = allResults.indexOf(r);
+                const editHtml = r.status === 'fail'
+                    ? `<div class="edit-row"><input type="text" value="${esc(r.address)}" class="edit-addr" data-idx="${idx}" /><button class="edit-btn edit-retry" data-idx="${idx}" title="重查">↻</button></div>`
+                    : '';
+                tr.innerHTML = `<td>${icon}</td><td><span class="loc-name" title="${esc(r.name)}">${esc(r.name)}</span></td><td>${r.status === 'fail' ? editHtml : `<span class="loc-addr" title="${esc(r.address)}">${esc(r.address)}</span>`}</td><td><span class="loc-coords">${coords}</span></td><td>${r.status === 'ok' ? `<button class="map-btn" data-lat="${r.lat}" data-lon="${r.lon}">📍</button>` : ''}</td>`;
+                tbody.appendChild(tr);
+            }
+
+            tbody.querySelectorAll('.map-btn').forEach(b => b.addEventListener('click', () => map.setView([+b.dataset.lat, +b.dataset.lon], 16)));
+            tbody.querySelectorAll('.edit-retry').forEach(b => b.addEventListener('click', async () => {
+                const idx = +b.dataset.idx;
+                const input = b.parentElement.querySelector('.edit-addr');
+                if (!input.value.trim()) return;
+                allResults[idx].address = input.value.trim();
+                b.disabled = true; b.textContent = '⏳';
+                const c = await geocode(input.value.trim());
+                if (c) { allResults[idx].lat = c.lat; allResults[idx].lon = c.lon; allResults[idx].status = 'ok'; addMarker(c.lat, c.lon, allResults[idx].name, input.value.trim()); toast('✅ ' + allResults[idx].name, 'success'); }
+                else toast('❌ ' + allResults[idx].name + ' 仍失敗', 'error');
+                updateStats(); renderTable(); saveState();
+            }));
+            tbody.querySelectorAll('.edit-addr').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') i.parentElement.querySelector('.edit-retry')?.click(); e.stopPropagation(); }));
+
+            document.querySelectorAll('th[data-sort]').forEach(th => {
+                const a = th.querySelector('.sa');
+                a.textContent = th.dataset.sort === sortCol ? (sortDir === 1 ? '▲' : '▼') : '';
+            });
+        }
+
+        document.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+            renderTable();
+        }));
+
+        document.querySelectorAll('.tab[data-filter]').forEach(tab => tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            currentFilter = tab.dataset.filter;
+            renderTable();
+        }));
+
+        $('card-ok').addEventListener('click', () => setFilterCard('ok'));
+        $('card-fail').addEventListener('click', () => setFilterCard('fail'));
+        function setFilterCard(type) {
+            if (filterCard === type) {
+                filterCard = null; currentFilter = 'all';
+                document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-filter'));
+                document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
+                document.querySelector('.tab[data-filter="all"]').classList.add('active');
+            } else {
+                filterCard = type; currentFilter = type;
+                document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-filter'));
+                $('card-' + type).classList.add('active-filter');
+                document.querySelectorAll('.tab[data-filter]').forEach(t => t.classList.remove('active'));
+                document.querySelector(`.tab[data-filter="${type}"]`).classList.add('active');
+            }
+            renderTable();
+        }
+
+        function togglePanel() {
+            panelCollapsed = !panelCollapsed;
+            $('float-bottom').classList.toggle('collapsed', panelCollapsed);
+        }
+        $('panel-toggle').addEventListener('click', togglePanel);
+        $('search-input').addEventListener('input', () => renderTable());
+
+        async function processLocations(locations) {
+            abortController = new AbortController();
+            processing = true;
+            processStartTime = Date.now();
+            $('btn-cancel').disabled = false;
+            $('btn-retry-fail').disabled = true;
+
+            $('float-welcome').classList.add('hidden');
+            $('float-preview').classList.add('hidden');
+            $('float-stats').classList.remove('hidden');
+            $('float-progress').classList.remove('hidden');
+            clearMarkers();
+
+            let ok = 0, fail = 0;
+            const total = locations.length;
+            $('progress-fill').style.width = '0%';
+
+            for (let i = 0; i < total; i++) {
+                if (abortController.signal.aborted) { toast('已取消', 'warn'); break; }
+                const loc = locations[i];
+                $('progress-fill').style.width = Math.round(i / total * 100) + '%';
+                $('progress-current').textContent = `(${i + 1}/${total}) ${loc.name}`;
+                $('progress-count').textContent = `${i} / ${total}`;
+                updateEta(i, total);
+
+                const c = await geocode(loc.address);
+                if (abortController.signal.aborted) break;
+
+                if (c) {
+                    if (!allResults.find(r => r.name === loc.name && r.status === 'ok')) {
+                        allResults.push({ name: loc.name, address: loc.address, lat: c.lat, lon: c.lon, status: 'ok' });
+                        addMarker(c.lat, c.lon, loc.name, loc.address);
+                    }
+                    ok++;
+                } else {
+                    if (!allResults.find(r => r.name === loc.name && r.status === 'fail')) {
+                        allResults.push({ name: loc.name, address: loc.address, lat: null, lon: null, status: 'fail' });
+                    }
+                    fail++;
+                }
+                updateStats(); renderTable();
+            }
+
+            $('progress-fill').style.width = '100%';
+            $('progress-current').textContent = abortController.signal.aborted ? '已取消' : '✅ 處理完成';
+            $('progress-count').textContent = `${ok + fail} / ${total}`;
+            updateEta(total, total);
+
+            if (!abortController.signal.aborted && ok > 0) {
+                map.fitBounds(markers.getBounds().pad(0.1));
+                toast(`完成！成功 ${ok} 筆，失敗 ${fail} 筆`, fail > 0 ? 'warn' : 'success');
+            } else if (ok === 0 && !abortController.signal.aborted) {
+                toast('所有地址皆無法解析', 'error');
+            }
+            processing = false;
+            $('btn-cancel').disabled = true;
+            updateStats(); saveState();
+            setTimeout(() => { if (!processing) $('float-progress').classList.add('hidden'); }, 3000);
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            $('file-name').textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+                    pendingLocations = [];
+                    let warnCount = 0;
+                    for (let i = 1; i < json.length; i++) {
+                        const row = json[i];
+                        if (row[1] && row[13]) {
+                            const addrStr = row[13].toString();
+                            pendingLocations.push({ name: row[1], address: addrStr });
+                            if (hasAddressIssue(addrStr)) warnCount++;
+                        }
+                    }
+                    if (!pendingLocations.length) { toast('找不到有效資料 (B欄/N欄為空)', 'error'); return; }
+
+                    $('float-welcome').classList.add('hidden');
+                    $('float-preview').classList.remove('hidden');
+                    $('preview-total').textContent = pendingLocations.length;
+                    $('preview-count').textContent = pendingLocations.length;
+                    $('preview-warn-wrap').classList.toggle('hidden', warnCount === 0);
+                    if (warnCount) $('preview-warn').textContent = warnCount;
+
+                    const pb = $('preview-body');
+                    pb.innerHTML = '';
+                    pendingLocations.slice(0, 20).forEach((loc, idx) => {
+                        const tr = document.createElement('tr');
+                        if (hasAddressIssue(loc.address)) tr.className = 'preview-warn';
+                        tr.innerHTML = `<td>${idx + 1}</td><td>${esc(loc.name)}</td><td style="font-size:11px;">${esc(loc.address)}</td><td style="font-size:11px;color:var(--text-secondary);">${esc(cleanAddress(loc.address))}</td>`;
+                        pb.appendChild(tr);
+                    });
+                    if (pendingLocations.length > 20) {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td colspan="4" style="text-align:center;color:var(--text-muted);">... 還有 ${pendingLocations.length - 20} 筆</td>`;
+                        pb.appendChild(tr);
+                    }
+                    toast(`讀取 ${pendingLocations.length} 筆`, 'info');
+                } catch (err) { toast('讀取失敗：' + err.message, 'error'); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        $('excel-file').addEventListener('change', e => handleFile(e.target.files[0]));
+
+        const dz = $('drop-zone');
+        dz.addEventListener('click', () => $('excel-file').click());
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+        dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files[0]) { const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); $('excel-file').files = dt.files; handleFile(e.dataTransfer.files[0]); } });
+        document.body.addEventListener('dragover', e => e.preventDefault());
+        document.body.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) { const dt = new DataTransfer(); dt.items.add(f); $('excel-file').files = dt.files; handleFile(f); } });
+
+        $('btn-start').addEventListener('click', () => { if (pendingLocations.length) processLocations(pendingLocations); });
+        $('btn-clear-file').addEventListener('click', () => { $('excel-file').value = ''; $('file-name').textContent = ''; pendingLocations = []; $('float-preview').classList.add('hidden'); $('float-welcome').classList.remove('hidden'); });
+        $('btn-cancel').addEventListener('click', () => abortController?.abort());
+        $('btn-retry-fail').addEventListener('click', async () => {
+            const failed = allResults.filter(r => r.status === 'fail');
+            if (!failed.length) return;
+            const locs = failed.map(r => ({ name: r.name, address: r.address }));
+            allResults = allResults.filter(r => r.status !== 'fail');
+            updateStats(); renderTable();
+            toast(`重試 ${locs.length} 筆...`, 'info');
+            await processLocations(locs);
+        });
+
+        $('btn-export').addEventListener('click', () => {
+            let m = $('export-modal');
+            if (m) { m.remove(); return; }
+            m = document.createElement('div');
+            m.className = 'modal-overlay'; m.id = 'export-modal';
+            m.innerHTML = `<div class="modal-box"><div class="modal-head"><h3>📤 匯出</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div><div class="modal-body"><div class="export-grid"><div class="export-card" data-fmt="csv"><div class="icon">📊</div><div class="name">CSV</div><div class="desc">Excel 適用</div></div><div class="export-card" data-fmt="json"><div class="icon">📋</div><div class="name">JSON</div><div class="desc">程式開發</div></div><div class="export-card" data-fmt="geojson"><div class="icon">🌍</div><div class="name">GeoJSON</div><div class="desc">地圖軟體</div></div><div class="export-card" data-fmt="kml"><div class="icon">🗺️</div><div class="name">KML</div><div class="desc">Google Earth</div></div></div></div></div>`;
+            document.body.appendChild(m);
+            m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+            m.querySelectorAll('.export-card').forEach(c => c.addEventListener('click', () => { exportData(c.dataset.fmt); m.remove(); }));
+        });
+
+        function exportData(fmt) {
+            if (!allResults.length) return;
+            let blob, fn;
+            if (fmt === 'csv') {
+                blob = new Blob(['\uFEFF社名,地址,緯度,經度,狀態\n' + allResults.map(r => `"${r.name}","${r.address}",${r.status === 'ok' ? r.lat : ''},${r.status === 'ok' ? r.lon : ''},"${r.status === 'ok' ? '成功' : '失敗'}"`).join('\n')], { type: 'text/csv;charset=utf-8;' });
+                fn = '社地址_結果.csv';
+            } else if (fmt === 'json') {
+                blob = new Blob([JSON.stringify(allResults, null, 2)], { type: 'application/json' }); fn = '社地址_結果.json';
+            } else if (fmt === 'geojson') {
+                const f = allResults.filter(r => r.status === 'ok').map(r => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r.lon, r.lat] }, properties: { name: r.name, address: r.address } }));
+                blob = new Blob([JSON.stringify({ type: 'FeatureCollection', features: f }, null, 2)], { type: 'application/geo+json' }); fn = '社地址_結果.geojson';
+            } else if (fmt === 'kml') {
+                let k = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<name>社地址</name>\n';
+                allResults.filter(r => r.status === 'ok').forEach(r => k += `<Placemark><name>${esc(r.name)}</name><description>${esc(r.address)}</description><Point><coordinates>${r.lon},${r.lat},0</coordinates></Point></Placemark>\n`);
+                blob = new Blob([k + '</Document>\n</kml>'], { type: 'application/vnd.google-earth.kml+xml' }); fn = '社地址_結果.kml';
+            }
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; a.click();
+            toast(fmt.toUpperCase() + ' 已下載', 'success');
+        }
+
+        const themeBtn = $('btn-theme');
+        function setTheme(t) { document.documentElement.dataset.theme = t; themeBtn.textContent = t === 'dark' ? '☀️' : '🌙'; localStorage.setItem(STATE_KEY + '_theme', t); }
+        themeBtn.addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+        setTheme(localStorage.getItem(STATE_KEY + '_theme') || 'light');
+
+        $('btn-clear-cache').addEventListener('click', () => {
+            if (!confirm('確定要清除已儲存的快取資料嗎？')) return;
+            localStorage.removeItem(STATE_KEY);
+            allResults = [];
+            clearMarkers();
+            updateStats(); renderTable();
+            $('float-stats').classList.add('hidden');
+            $('float-welcome').classList.remove('hidden');
+            toast('已清除快取', 'success');
+        });
+
+        $('btn-shortcuts').addEventListener('click', () => {
+            let m = $('shortcut-modal');
+            if (m) { m.remove(); return; }
+            m = document.createElement('div');
+            m.className = 'modal-overlay'; m.id = 'shortcut-modal';
+            m.innerHTML = `<div class="modal-box"><div class="modal-head"><h3>⌨️ 快捷鍵</h3><button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div><div class="modal-body"><table style="width:100%;font-size:12px;"><tr><td style="padding:4px 0;"><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>搜尋</td></tr><tr><td style="padding:4px 0;"><kbd>Esc</kbd></td><td>關閉/取消</td></tr></table></div></div>`;
+            document.body.appendChild(m);
+            m.addEventListener('click', e => { if (e.target === m) m.remove(); });
+        });
+
+        document.addEventListener('keydown', e => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); $('search-input').focus(); if (panelCollapsed) togglePanel(); }
+            if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); if (processing && abortController) abortController.abort(); }
+        });
+
+        const EXPIRE_MS = 7 * 24 * 3600 * 1000; // 7 days
+        function saveState() { try { localStorage.setItem(STATE_KEY, JSON.stringify({ results: allResults, timestamp: Date.now() })); } catch (e) {} }
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STATE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (!data.results?.length || Date.now() - (data.timestamp || 0) > EXPIRE_MS) { localStorage.removeItem(STATE_KEY); return; }
+                allResults = data.results;
+                $('float-welcome').classList.add('hidden');
+                $('float-stats').classList.remove('hidden');
+                allResults.filter(r => r.status === 'ok').forEach(r => addMarker(r.lat, r.lon, r.name, r.address));
+                updateStats(); renderTable();
+                if (markers.getBounds().isValid()) map.fitBounds(markers.getBounds().pad(0.1));
+                const age = Math.round((Date.now() - data.timestamp) / 60000);
+                toast(`已恢復上次結果 (${allResults.length} 筆，${age < 60 ? age + '分鐘前' : Math.round(age/60) + '小時前'})`, 'info');
+            } catch (e) { localStorage.removeItem(STATE_KEY); }
+        }
+
+        updateStats(); renderTable(); loadState();
+    })();
+    </script>
+</body>
+</html>
