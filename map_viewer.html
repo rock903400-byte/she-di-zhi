@@ -37,7 +37,7 @@
         html, body { height: 100%; font-family: "Microsoft JhengHei","Noto Sans TC",Arial,sans-serif; background: #000; color: var(--text); font-size: 14px; overflow: hidden; }
 
         /* ── Map fills entire viewport ── */
-        .map-container { position: fixed; inset: 0; z-index: 0; }
+        .map-container { position: fixed; inset: 0; z-index: 0; background: #e8e8e8; }
         #map { width: 100%; height: 100%; }
 
         /* ── Floating panels ── */
@@ -125,34 +125,6 @@
         .progress-current { color: var(--primary); font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
         .progress-bar-bg { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
         .progress-fill { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); width: 0%; transition: width .3s ease; border-radius: 2px; }
-
-        /* ── Welcome overlay ── */
-        .float-welcome {
-            top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 480px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px);
-            overflow-y: auto; padding: 32px; text-align: center; border-radius: var(--radius-lg);
-        }
-        .float-welcome.hidden { transform: translate(-50%, -48%); }
-        .welcome-icon { font-size: 52px; margin-bottom: 12px; }
-        .float-welcome h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-        .float-welcome > p { color: var(--text-secondary); margin-bottom: 20px; font-size: 14px; }
-        .drop-zone {
-            border: 2px dashed var(--border); border-radius: var(--radius);
-            padding: 28px 16px; cursor: pointer; transition: all .2s;
-            background: var(--surface-alt); margin-bottom: 20px;
-        }
-        .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: var(--primary-light); }
-        .drop-zone-icon { font-size: 32px; margin-bottom: 6px; }
-        .drop-zone-text { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
-        .drop-zone-hint { font-size: 11px; color: var(--text-muted); }
-        .format-info {
-            background: var(--surface-alt); border: 1px solid var(--border);
-            border-radius: var(--radius); padding: 14px 16px; text-align: left;
-        }
-        .format-info h3 { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-        .format-info ul { list-style: none; }
-        .format-info li { padding: 3px 0; font-size: 12px; color: var(--text-secondary); }
-        .format-info li strong { color: var(--text); }
 
         /* ── Preview overlay ── */
         .float-preview {
@@ -294,7 +266,6 @@
             .stat-card { padding: 4px 8px; min-width: 52px; }
             .stat-card .value { font-size: 16px; }
             .float-progress { top: 96px; left: 8px; right: 8px; }
-            .float-welcome { width: calc(100vw - 16px); padding: 20px 16px; }
             .float-preview { width: calc(100vw - 16px); }
             :root { --panel-h: 200px; }
             .loc-name { max-width: 80px; }
@@ -309,16 +280,10 @@
     <!-- Toolbar (floating) -->
     <div class="float-panel float-toolbar" id="float-toolbar">
         <div class="brand"><span>🗺️</span><span>社地址地圖</span></div>
-        <label class="file-label">
-            📂 選取 Excel
-            <input type="file" id="excel-file" accept=".xlsx,.xls" />
-        </label>
-        <span class="file-name" id="file-name"></span>
+        <span class="brand" style="font-size:13px;">📦 社地址資料 (31 筆)</span>
         <div class="toolbar-spacer"></div>
         <div class="tb-right">
-            <button class="btn btn-danger" id="btn-cancel" disabled>✕ 取消</button>
-            <button class="btn btn-warning" id="btn-retry-fail" disabled>↻ 重試失敗</button>
-            <button class="btn btn-outline" id="btn-export" disabled>↓ 匯出</button>
+            <button class="btn btn-outline" id="btn-export">↓ 匯出</button>
             <button class="icon-btn" id="btn-clear-cache" title="清除快取">🗑️</button>
             <button class="icon-btn" id="btn-theme" title="深色模式">🌙</button>
             <button class="icon-btn" id="btn-shortcuts" title="快捷鍵">⌨</button>
@@ -331,57 +296,6 @@
         <div class="stat-card success clickable" id="card-ok"><div class="value" id="stat-ok">0</div><div class="label">成功</div></div>
         <div class="stat-card fail clickable" id="card-fail"><div class="value" id="stat-fail">0</div><div class="label">失敗</div></div>
         <div class="stat-card eta"><div class="value" id="stat-eta">--</div><div class="label">預估</div></div>
-    </div>
-
-    <!-- Progress (floating) -->
-    <div class="float-panel float-progress hidden" id="float-progress">
-        <div class="progress-info">
-            <span class="progress-current" id="progress-current">就緒</span>
-            <span id="progress-rate"></span>
-            <span id="progress-count">0 / 0</span>
-        </div>
-        <div class="progress-bar-bg"><div class="progress-fill" id="progress-fill"></div></div>
-    </div>
-
-    <!-- Welcome (floating centered) -->
-    <div class="float-panel float-welcome" id="float-welcome">
-        <div class="welcome-icon">🗺️</div>
-        <h2>將 Excel 地址轉換為互動地圖</h2>
-        <p>選取或拖曳 <code>@社地址.xlsx</code> 檔案即可開始</p>
-        <div class="drop-zone" id="drop-zone">
-            <div class="drop-zone-icon">📥</div>
-            <div class="drop-zone-text">拖曳 Excel 檔案到這裡</div>
-            <div class="drop-zone-hint">支援 .xlsx / .xls</div>
-        </div>
-        <div class="format-info">
-            <h3>📋 資料欄位格式</h3>
-            <ul>
-                <li><strong>B 欄</strong>：社名</li>
-                <li><strong>N 欄</strong>：地址（郵遞區號自動移除）</li>
-                <li>第一列為標題列，自動跳過</li>
-            </ul>
-        </div>
-    </div>
-
-    <!-- Preview (floating centered) -->
-    <div class="float-panel float-preview hidden" id="float-preview">
-        <div class="preview-head">
-            <h3>📋 資料預覽</h3>
-            <div class="preview-meta">
-                <span>共 <strong id="preview-total">0</strong> 筆</span>
-                <span class="warn hidden" id="preview-warn-wrap">⚠ <span id="preview-warn">0</span> 筆可能有問題</span>
-            </div>
-        </div>
-        <div class="preview-body">
-            <table class="preview-table">
-                <thead><tr><th>#</th><th>社名</th><th>原始地址</th><th>清理後</th></tr></thead>
-                <tbody id="preview-body"></tbody>
-            </table>
-        </div>
-        <div class="preview-foot">
-            <button class="btn btn-outline" id="btn-clear-file">✕ 清除</button>
-            <button class="btn btn-primary" id="btn-start">▶ 開始處理 (<span id="preview-count">0</span> 筆)</button>
-        </div>
     </div>
 
     <!-- Bottom panel (slide-up drawer) -->
@@ -424,10 +338,8 @@
     <script>
     (function() {
         const STATE_KEY = '社地址mapViewer';
+        const EMBEDDED_DATA = [{"n":"百成","a":"64045雲林縣斗六市中華路８０號","s":"一至五：8:30~16:30","lat":23.7085649,"lon":120.5459709},{"n":"伯鐸","a":"64850雲林縣西螺鎮中正路３００號","s":"週一~週五8:30-12:00,13:30-16:30","lat":23.7984211,"lon":120.4589763},{"n":"福祿","a":"63341雲林縣土庫鎮中山路９３號","s":"一至五：8:30~16:00","lat":23.6753789,"lon":120.3906999},{"n":"鹿寮","a":"65546雲林縣元長鄉鹿北村明鹿路８０－９號","s":"一至五：08:30~12:00","lat":23.6479314,"lon":120.3808147},{"n":"路加","a":"63341雲林縣土庫鎮中山路２３６號","s":"週一~週五8:00-16:00","lat":23.6753789,"lon":120.3906999},{"n":"聖三","a":"630052雲林縣斗南鎮新興街13-1號","s":"週一~週五8:30-16:00(國定假日休)","lat":23.6745348,"lon":120.4792439},{"n":"崙光","a":"63745雲林縣崙背鄉南陽村大同路１０７號","s":"週一、三、五上午0830~1200","lat":23.760243,"lon":120.3502053},{"n":"豪友","a":"64342雲林縣林內鄉林中村中正路４９３號","s":"週一~週五8:30-16:00","lat":23.7521572,"lon":120.6106487},{"n":"惠民","a":"65141雲林縣北港鎮民有路５５號","s":"週一~週五9:00-16:30","lat":23.5734881,"lon":120.3019092},{"n":"愛心","a":"63244雲林縣虎尾鎮院前街１６號","s":"一至五：08:30~15:30","lat":23.7103078,"lon":120.4331112},{"n":"上智","a":"63245雲林縣虎尾鎮德興路１７３－１號","s":"週一~週五8:30-15:30","lat":23.7100683,"lon":120.4310643},{"n":"二崙","a":"64941雲林縣二崙鄉崙東村中興路６２巷１弄２７號","s":"週二8:30-16:30","lat":23.7723279,"lon":120.4127706},{"n":"德化","a":"63042雲林縣斗南鎮南昌里興仁街59-1號","s":"週一~週五8:30-12:00,13:00-16:30","lat":23.6749447,"lon":120.4806514},{"n":"民權","a":"60044嘉義市民權路６２號","s":"週二、週三8:00-12:00 13:00~1600(週一、四、五、六及國定假日休) 週日8:00-12:00","lat":23.4835116,"lon":120.4577798},{"n":"義德","a":"600015嘉義市東區民權路62號","s":"週一、四上午9:00-12:00，下午13:00-16:00","lat":23.4835116,"lon":120.4577798},{"n":"福民","a":"600030嘉義市西區漢口路235號","s":"週一~週五9:00-15:00","lat":23.4659367,"lon":120.4321702},{"n":"鹿草","a":"61151嘉義縣鹿草鄉西井村２９２號","s":"週一~週五8:30-11:30, 13:30-16:00","lat":23.4108853,"lon":120.3077116},{"n":"聖母","a":"613003嘉義縣朴子市市文明路1-9號","s":"每週一及每週二 14::00-17:30","lat":23.46815,"lon":120.24836},{"n":"海星","a":"60341嘉義縣梅山鄉梅東村１４鄰新興路６８號","s":"週一~週五8:00-16:00(週休2日、例假日休)","lat":23.5795409,"lon":120.5603849},{"n":"玉山","a":"60593嘉義縣阿里山鄉達邦村8鄰特富野220-3號","s":"周一~五 上午08:00～12:00、12:30～15:30（對外）16:00～17:00（結帳）","lat":23.4265425,"lon":120.7727048},{"n":"救主","a":"61693嘉義縣新港鄉宮前村古民街２２號","s":"週一、三9:00-12:00, 13:00-16:00","lat":23.5559309,"lon":120.3499171},{"n":"主恩","a":"603001嘉義縣梅山鄉新興路２０６號","s":"週一~週五8:00-16:00","lat":23.5849624,"lon":120.5576445},{"n":"三育","a":"62242嘉義縣大林鎮中山路２００號","s":"週一~週五9:00-16:00","lat":23.6052473,"lon":120.4557319},{"n":"里山","a":"60597嘉義縣阿里山鄉里佳村二鄰２８號","s":"週一上午9：00-12：00，13：00-1500、週三下午13：00～20：30；週日09:00~17:00","lat":23.3927033,"lon":120.7316574},{"n":"山美","a":"60583嘉義縣阿里山鄉山美村四鄰８９號","s":"週一~週五8:00-12:00, 13:00-16:00","lat":23.3944979,"lon":120.6698994},{"n":"新美","a":"60583嘉義縣阿里山鄉新美村新美路６６號","s":"週一~週五8:00-15:00","lat":23.3719617,"lon":120.6693011},{"n":"達邦","a":"605030嘉義縣阿里山鄉達邦村三鄰68號附1","s":"週一~週四8:00-15:30、週五8:00-12:00,13:00-15:30","lat":23.4265425,"lon":120.7727048},{"n":"新光","a":"61641嘉義縣新港鄉新中路６６８號","s":"週一、週四8:30-16:00(午休30~60分鐘)","lat":23.5601821,"lon":120.3438749},{"n":"民光","a":"62141嘉義縣民雄鄉西安村安和路２０號","s":"週一~週五8:30-15:30(國定假日休)","lat":23.551784,"lon":120.4209243},{"n":"來吉","a":"605033嘉義縣阿里山鄉來吉村二鄰38-8號","s":"週一,週三晚間07：00-10：00 週二,週四,週五上午08：00-11：00,下午13：00-18:00","lat":23.5336622,"lon":120.7600474},{"n":"茶山","a":"60592嘉義縣阿里山鄉茶山村４鄰８８號","s":"週三0800一1600(對外至1500)","lat":23.309569,"lon":120.6931284}];
         let allResults = [];
-        let pendingLocations = [];
-        let abortController = null;
-        let processing = false;
         let panelCollapsed = true;
         let currentFilter = 'all';
         let sortCol = null;
@@ -456,17 +368,19 @@
         }
         function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-        function cleanAddress(address) {
-            if (!address) return '';
-            let c = address.replace(/^\d+/, '').trim();
-            c = c.replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
-            c = c.replace(/\(.*\)/g, '').replace(/（.*）/g, '');
-            return c;
-        }
-        function hasAddressIssue(raw) {
-            if (!raw) return true;
-            const c = cleanAddress(raw);
-            return c.length < 3 || !/(?:縣|市|鄉|鎮|區|村|里|路|街|巷|弄|號)/.test(c);
+        function initMap() {
+            allResults = EMBEDDED_DATA.map(d => ({
+                name: d.n, address: d.a, serviceTime: d.s,
+                lat: d.lat, lon: d.lon,
+                status: d.lat != null ? 'ok' : 'fail'
+            }));
+            allResults.filter(r => r.status === 'ok').forEach(r =>
+                addMarker(r.lat, r.lon, r.name, r.address, r.serviceTime)
+            );
+            $('float-stats').classList.remove('hidden');
+            updateStats(); renderTable();
+            if (markers.getBounds().isValid()) map.fitBounds(markers.getBounds().pad(0.1));
+            toast(`已載入 ${allResults.length} 筆資料（${allResults.filter(r=>r.status==='ok').length} 筆有座標）`, 'info');
         }
 
         async function geocode(address) {
@@ -499,37 +413,22 @@
 
         async function fetchCoords(query) {
             await new Promise(r => setTimeout(r, 1200));
-            if (abortController?.signal.aborted) throw new DOMException('Aborted', 'AbortError');
             try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, { signal: abortController?.signal });
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
                 if (resp.status === 429 || resp.status === 403 || !resp.ok) return null;
                 const data = await resp.json();
                 return data?.length > 0 ? { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) } : null;
-            } catch (e) { if (e.name === 'AbortError') throw e; return null; }
+            } catch (e) { return null; }
         }
 
-        function addMarker(lat, lon, name, addr) {
+        function addMarker(lat, lon, name, addr, serviceTime) {
             const marker = L.marker([lat, lon]);
             marker.bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10], className: 'floating-label' });
-            marker.bindPopup(`<b>${esc(name)}</b><br><span style="font-size:11px;color:#888;">${esc(addr)}</span>`);
-            marker.on('click', () => highlightRow(name));
+            marker.bindPopup(`<b>${esc(name)}</b><br>🕐 ${esc(serviceTime || '未提供')}<br><span style="font-size:11px;color:#888;">${esc(addr)}</span><br><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" style="display:inline-block;margin-top:6px;padding:4px 12px;background:#4285f4;color:#fff;border-radius:4px;text-decoration:none;font-size:12px;font-weight:600;">🧭 Google 導航</a>`);
             markers.addLayer(marker);
             markerMap.set(name, marker);
         }
         function clearMarkers() { markers.clearLayers(); markerMap.clear(); }
-
-        function highlightRow(name) {
-            for (const row of $('table-body').querySelectorAll('tr')) {
-                const cell = row.querySelector('.loc-name');
-                if (cell?.textContent === name) {
-                    row.style.outline = '2px solid var(--primary)';
-                    setTimeout(() => row.style.outline = '', 2500);
-                    if (panelCollapsed) togglePanel();
-                    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    break;
-                }
-            }
-        }
 
         function updateStats() {
             const total = allResults.length;
@@ -541,18 +440,7 @@
             $('badge-all').textContent = total;
             $('badge-ok').textContent = ok;
             $('badge-fail').textContent = fail;
-            $('btn-retry-fail').disabled = fail === 0 || processing;
             $('btn-export').disabled = total === 0;
-        }
-
-        let processStartTime = 0;
-        function updateEta(current, total) {
-            if (current < 2) { $('stat-eta').textContent = '--'; return; }
-            const elapsed = (Date.now() - processStartTime) / 1000;
-            const rate = current / elapsed;
-            const rem = (total - current) / rate;
-            $('stat-eta').textContent = rem < 60 ? Math.round(rem) + 's' : Math.round(rem / 60) + 'm' + Math.round(rem % 60) + 's';
-            $('progress-rate').textContent = rate.toFixed(1) + ' 筆/秒';
         }
 
         function renderTable() {
@@ -652,134 +540,7 @@
         $('panel-toggle').addEventListener('click', togglePanel);
         $('search-input').addEventListener('input', () => renderTable());
 
-        async function processLocations(locations) {
-            abortController = new AbortController();
-            processing = true;
-            processStartTime = Date.now();
-            $('btn-cancel').disabled = false;
-            $('btn-retry-fail').disabled = true;
-
-            $('float-welcome').classList.add('hidden');
-            $('float-preview').classList.add('hidden');
-            $('float-stats').classList.remove('hidden');
-            $('float-progress').classList.remove('hidden');
-            clearMarkers();
-
-            let ok = 0, fail = 0;
-            const total = locations.length;
-            $('progress-fill').style.width = '0%';
-
-            for (let i = 0; i < total; i++) {
-                if (abortController.signal.aborted) { toast('已取消', 'warn'); break; }
-                const loc = locations[i];
-                $('progress-fill').style.width = Math.round(i / total * 100) + '%';
-                $('progress-current').textContent = `(${i + 1}/${total}) ${loc.name}`;
-                $('progress-count').textContent = `${i} / ${total}`;
-                updateEta(i, total);
-
-                const c = await geocode(loc.address);
-                if (abortController.signal.aborted) break;
-
-                if (c) {
-                    if (!allResults.find(r => r.name === loc.name && r.status === 'ok')) {
-                        allResults.push({ name: loc.name, address: loc.address, lat: c.lat, lon: c.lon, status: 'ok' });
-                        addMarker(c.lat, c.lon, loc.name, loc.address);
-                    }
-                    ok++;
-                } else {
-                    if (!allResults.find(r => r.name === loc.name && r.status === 'fail')) {
-                        allResults.push({ name: loc.name, address: loc.address, lat: null, lon: null, status: 'fail' });
-                    }
-                    fail++;
-                }
-                updateStats(); renderTable();
-            }
-
-            $('progress-fill').style.width = '100%';
-            $('progress-current').textContent = abortController.signal.aborted ? '已取消' : '✅ 處理完成';
-            $('progress-count').textContent = `${ok + fail} / ${total}`;
-            updateEta(total, total);
-
-            if (!abortController.signal.aborted && ok > 0) {
-                map.fitBounds(markers.getBounds().pad(0.1));
-                toast(`完成！成功 ${ok} 筆，失敗 ${fail} 筆`, fail > 0 ? 'warn' : 'success');
-            } else if (ok === 0 && !abortController.signal.aborted) {
-                toast('所有地址皆無法解析', 'error');
-            }
-            processing = false;
-            $('btn-cancel').disabled = true;
-            updateStats(); saveState();
-            setTimeout(() => { if (!processing) $('float-progress').classList.add('hidden'); }, 3000);
-        }
-
-        function handleFile(file) {
-            if (!file) return;
-            $('file-name').textContent = file.name;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-                    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-                    pendingLocations = [];
-                    let warnCount = 0;
-                    for (let i = 1; i < json.length; i++) {
-                        const row = json[i];
-                        if (row[1] && row[13]) {
-                            const addrStr = row[13].toString();
-                            pendingLocations.push({ name: row[1], address: addrStr });
-                            if (hasAddressIssue(addrStr)) warnCount++;
-                        }
-                    }
-                    if (!pendingLocations.length) { toast('找不到有效資料 (B欄/N欄為空)', 'error'); return; }
-
-                    $('float-welcome').classList.add('hidden');
-                    $('float-preview').classList.remove('hidden');
-                    $('preview-total').textContent = pendingLocations.length;
-                    $('preview-count').textContent = pendingLocations.length;
-                    $('preview-warn-wrap').classList.toggle('hidden', warnCount === 0);
-                    if (warnCount) $('preview-warn').textContent = warnCount;
-
-                    const pb = $('preview-body');
-                    pb.innerHTML = '';
-                    pendingLocations.slice(0, 20).forEach((loc, idx) => {
-                        const tr = document.createElement('tr');
-                        if (hasAddressIssue(loc.address)) tr.className = 'preview-warn';
-                        tr.innerHTML = `<td>${idx + 1}</td><td>${esc(loc.name)}</td><td style="font-size:11px;">${esc(loc.address)}</td><td style="font-size:11px;color:var(--text-secondary);">${esc(cleanAddress(loc.address))}</td>`;
-                        pb.appendChild(tr);
-                    });
-                    if (pendingLocations.length > 20) {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td colspan="4" style="text-align:center;color:var(--text-muted);">... 還有 ${pendingLocations.length - 20} 筆</td>`;
-                        pb.appendChild(tr);
-                    }
-                    toast(`讀取 ${pendingLocations.length} 筆`, 'info');
-                } catch (err) { toast('讀取失敗：' + err.message, 'error'); }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        $('excel-file').addEventListener('change', e => handleFile(e.target.files[0]));
-
-        const dz = $('drop-zone');
-        dz.addEventListener('click', () => $('excel-file').click());
-        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
-        dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-        dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); if (e.dataTransfer.files[0]) { const dt = new DataTransfer(); dt.items.add(e.dataTransfer.files[0]); $('excel-file').files = dt.files; handleFile(e.dataTransfer.files[0]); } });
-        document.body.addEventListener('dragover', e => e.preventDefault());
-        document.body.addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && (f.name.endsWith('.xlsx') || f.name.endsWith('.xls'))) { const dt = new DataTransfer(); dt.items.add(f); $('excel-file').files = dt.files; handleFile(f); } });
-
-        $('btn-start').addEventListener('click', () => { if (pendingLocations.length) processLocations(pendingLocations); });
-        $('btn-clear-file').addEventListener('click', () => { $('excel-file').value = ''; $('file-name').textContent = ''; pendingLocations = []; $('float-preview').classList.add('hidden'); $('float-welcome').classList.remove('hidden'); });
-        $('btn-cancel').addEventListener('click', () => abortController?.abort());
-        $('btn-retry-fail').addEventListener('click', async () => {
-            const failed = allResults.filter(r => r.status === 'fail');
-            if (!failed.length) return;
-            const locs = failed.map(r => ({ name: r.name, address: r.address }));
-            allResults = allResults.filter(r => r.status !== 'fail');
-            updateStats(); renderTable();
-            toast(`重試 ${locs.length} 筆...`, 'info');
-            await processLocations(locs);
-        });
+        initMap();
 
         $('btn-export').addEventListener('click', () => {
             let m = $('export-modal');
@@ -796,16 +557,16 @@
             if (!allResults.length) return;
             let blob, fn;
             if (fmt === 'csv') {
-                blob = new Blob(['\uFEFF社名,地址,緯度,經度,狀態\n' + allResults.map(r => `"${r.name}","${r.address}",${r.status === 'ok' ? r.lat : ''},${r.status === 'ok' ? r.lon : ''},"${r.status === 'ok' ? '成功' : '失敗'}"`).join('\n')], { type: 'text/csv;charset=utf-8;' });
+                blob = new Blob(['\uFEFF社名,地址,服務時間,緯度,經度,狀態\n' + allResults.map(r => `"${r.name}","${r.address}","${r.serviceTime || ''}",${r.status === 'ok' ? r.lat : ''},${r.status === 'ok' ? r.lon : ''},"${r.status === 'ok' ? '成功' : '失敗'}"`).join('\n')], { type: 'text/csv;charset=utf-8;' });
                 fn = '社地址_結果.csv';
             } else if (fmt === 'json') {
                 blob = new Blob([JSON.stringify(allResults, null, 2)], { type: 'application/json' }); fn = '社地址_結果.json';
             } else if (fmt === 'geojson') {
-                const f = allResults.filter(r => r.status === 'ok').map(r => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r.lon, r.lat] }, properties: { name: r.name, address: r.address } }));
+                const f = allResults.filter(r => r.status === 'ok').map(r => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r.lon, r.lat] }, properties: { name: r.name, address: r.address, serviceTime: r.serviceTime } }));
                 blob = new Blob([JSON.stringify({ type: 'FeatureCollection', features: f }, null, 2)], { type: 'application/geo+json' }); fn = '社地址_結果.geojson';
             } else if (fmt === 'kml') {
                 let k = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<name>社地址</name>\n';
-                allResults.filter(r => r.status === 'ok').forEach(r => k += `<Placemark><name>${esc(r.name)}</name><description>${esc(r.address)}</description><Point><coordinates>${r.lon},${r.lat},0</coordinates></Point></Placemark>\n`);
+                allResults.filter(r => r.status === 'ok').forEach(r => k += `<Placemark><name>${esc(r.name)}</name><description>${esc(r.address)}${r.serviceTime ? ' | 服務時間：' + esc(r.serviceTime) : ''}</description><Point><coordinates>${r.lon},${r.lat},0</coordinates></Point></Placemark>\n`);
                 blob = new Blob([k + '</Document>\n</kml>'], { type: 'application/vnd.google-earth.kml+xml' }); fn = '社地址_結果.kml';
             }
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; a.click();
@@ -818,14 +579,14 @@
         setTheme(localStorage.getItem(STATE_KEY + '_theme') || 'light');
 
         $('btn-clear-cache').addEventListener('click', () => {
-            if (!confirm('確定要清除已儲存的快取資料嗎？')) return;
+            if (!confirm('確定要清除已儲存的快取資料並重新載入？')) return;
             localStorage.removeItem(STATE_KEY);
             allResults = [];
             clearMarkers();
             updateStats(); renderTable();
             $('float-stats').classList.add('hidden');
-            $('float-welcome').classList.remove('hidden');
-            toast('已清除快取', 'success');
+            initMap();
+            toast('已清除快取，重新載入內建資料', 'success');
         });
 
         $('btn-shortcuts').addEventListener('click', () => {
@@ -840,7 +601,7 @@
 
         document.addEventListener('keydown', e => {
             if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); $('search-input').focus(); if (panelCollapsed) togglePanel(); }
-            if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); if (processing && abortController) abortController.abort(); }
+            if (e.key === 'Escape') { document.querySelectorAll('.modal-overlay').forEach(m => m.remove()); }
         });
 
         const EXPIRE_MS = 7 * 24 * 3600 * 1000; // 7 days
@@ -852,9 +613,9 @@
                 const data = JSON.parse(raw);
                 if (!data.results?.length || Date.now() - (data.timestamp || 0) > EXPIRE_MS) { localStorage.removeItem(STATE_KEY); return; }
                 allResults = data.results;
-                $('float-welcome').classList.add('hidden');
                 $('float-stats').classList.remove('hidden');
-                allResults.filter(r => r.status === 'ok').forEach(r => addMarker(r.lat, r.lon, r.name, r.address));
+                clearMarkers();
+                allResults.filter(r => r.status === 'ok').forEach(r => addMarker(r.lat, r.lon, r.name, r.address, r.serviceTime));
                 updateStats(); renderTable();
                 if (markers.getBounds().isValid()) map.fitBounds(markers.getBounds().pad(0.1));
                 const age = Math.round((Date.now() - data.timestamp) / 60000);
