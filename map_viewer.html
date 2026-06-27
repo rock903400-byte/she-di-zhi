@@ -424,7 +424,7 @@
         function addMarker(lat, lon, name, addr, serviceTime) {
             const marker = L.marker([lat, lon]);
             marker.bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10], className: 'floating-label' });
-            marker.bindPopup(`<b>${esc(name)}</b><br>🕐 ${esc(serviceTime || '未提供')}<br><span style="font-size:11px;color:#888;">${esc(addr)}</span><br><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" style="display:inline-block;margin-top:6px;padding:4px 12px;background:#4285f4;color:#fff;border-radius:4px;text-decoration:none;font-size:12px;font-weight:600;">🧭 Google 導航</a>`);
+            marker.bindPopup(`<b>${esc(name)}</b><br>🕐 ${esc(serviceTime || '未提供')}<br><span style="font-size:11px;color:#888;">${esc(addr)}</span><br><a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr + ' 台灣')}" target="_blank" style="display:inline-block;margin-top:6px;padding:4px 12px;background:#4285f4;color:#fff;border-radius:4px;text-decoration:none;font-size:12px;font-weight:600;">🧭 Google 導航</a>`);
             markers.addLayer(marker);
             markerMap.set(name, marker);
         }
