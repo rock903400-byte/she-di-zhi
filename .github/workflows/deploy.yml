@@ -17,4 +17,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: b6b8901d50859ad9295f1906bbac12b0
-          command: pages deploy . --project-name=she-di-zhi --branch=main
+          command: pages deploy . --project-name=she-di-zhi --branch=main --commit-dirty=true
